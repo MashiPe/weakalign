@@ -8,7 +8,7 @@ Credit for the authors. For more information check out the original project [[we
 
 ### VScode dev-container
 
-A dev docker container is provided for easy reproduction. To use it open the project in VSCode and open the project in a dev-container using the Dockerfile in the project. 
+A dev docker container is provided for easy reproduction. To use it open the project in VSCode and open the project in a dev-container using the Dockerfile located at the root of the project. 
 
 ### Training
 
