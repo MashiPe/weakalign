@@ -1,30 +1,24 @@
-# End-to-end weakly-supervised semantic alignment
-
-![](http://www.di.ens.fr/willow/research/weakalign/images/teaser.jpg)
-
-
 ## About
 
-This is the implementation of the paper "End-to-end weakly-supervised semantic alignment" by I. Rocco, R. Arandjelović and J. Sivic. 
+This is an extesion that adds support for the homography transformation for the model proposed in "End-to-end weakly-supervised semantic alignment" by I. Rocco, R. Arandjelović and J. Sivic. 
 
-For more information check out the project [[website](http://www.di.ens.fr/willow/research/weakalign/)] and the paper on [[arXiv](https://arxiv.org/abs/1712.06861)].
-
+Credit for the authors. For more information check out the original project [[website](http://www.di.ens.fr/willow/research/weakalign/)] and the paper on [[arXiv](https://arxiv.org/abs/1712.06861)].
 
 ## Getting started
 
-### Dependencies
+### VScode dev-container
 
-The code is implemented using Python 3 and PyTorch 0.2. All dependencies are included in the standard Anaconda distribution.
+A dev docker container is provided for easy reproduction. To use it open the project in VSCode and open the project in a dev-container using the Dockerfile in the project. 
 
 ### Training
 
-The code includes scripts for pre-training the models with strong supervision (`train_strong.py`) as proposed in [our previous work](http://www.di.ens.fr/willow/research/cnngeometric/), as well as to fine-tune the model using weak supervision (`train_weak.py`) as proposed in this work.
+The code includes scripts for pre-training the homography model with strong supervision (`train_strong_hom.py`) as well as to fine-tune the model using weak supervision (`train_weak_hom.py`).
 
 Training scripts can be found in the `scripts/` folder.
 
 ### Evaluation
 
-Evaluation is implemented in the `eval.py` file. It can evaluate a single affine or TPS model (with the `--model-aff` and `--model-tps` parameters respectively), or a combined affine+TPS model (with the `--model`) parameter.
+Evaluation is implemented in the `eval_hom.py` file. It can evaluate a homography model (with the `--model-hom` parameters). No evaluation for combined models is provided
 
 The evaluation dataset is passed with the `--eval-dataset` parameter.
 
@@ -32,36 +26,19 @@ The evaluation dataset is passed with the `--eval-dataset` parameter.
 
 Trained models for the baseline method using only strong supervision and the proposed method using additional weak supervision are provided below. You can store them in the `trained_models/` folder. 
 
-With the provided code below you should obtain the results from Table 2 of the paper.
-
-
-**CNNGeometric with VGG-16 baseline:** [[affine model](http://www.di.ens.fr/willow/research/weakalign/trained_models/cnngeo_vgg16_affine.pth.tar)],[[TPS model](http://www.di.ens.fr/willow/research/weakalign/trained_models/cnngeo_vgg16_tps.pth.tar)]
+**CNNGeometric with ResNet-101 baseline:** [[hom model]()]
 
 ```
-python eval.py --feature-extraction-cnn vgg --model-aff trained_models/cnngeo_vgg16_affine.pth.tar --model-tps trained_models/cnngeo_vgg16_tps.pth.tar --eval-dataset pf-pascal
+python eval_hom.py --feature-extraction-cnn resnet101 --model-hom trained_models/cnngeo_resnet101_hom.pth.tar --eval-dataset pf-pascal
 ```
 
-**CNNGeometric with ResNet-101 baseline:** [[affine model](http://www.di.ens.fr/willow/research/weakalign/trained_models/cnngeo_resnet101_affine.pth.tar)],[[TPS model](http://www.di.ens.fr/willow/research/weakalign/trained_models/cnngeo_resnet101_tps.pth.tar)]
+**Proposed method:** [[hom model]()]
 
 ```
-python eval.py --feature-extraction-cnn resnet101 --model-aff trained_models/cnngeo_resnet101_affine.pth.tar --model-tps trained_models/cnngeo_resnet101_tps.pth.tar --eval-dataset pf-pascal
+python eval_hom.py --feature-extraction-cnn resnet101 --model-hom trained_models/weakalign_resnet101_hom.pth.tar --eval-dataset pf-pascal
 ```
 
-**Proposed method:** [[combined aff+TPS model](http://www.di.ens.fr/willow/research/weakalign/trained_models/weakalign_resnet101_affine_tps.pth.tar)]
+## Credits
 
-```
-python eval.py --feature-extraction-cnn resnet101 --model trained_models/weakalign_resnet101_affine_tps.pth.tar --eval-dataset pf-pascal
-```
-
-## BibTeX 
-
-If you use this code in your project, please cite our paper:
-````
-@article{Rocco18,
-        author       = "Rocco, I. and Arandjelovi\'c, R. and Sivic, J.",
-        title        = "End-to-end weakly-supervised semantic alignment",
-        journal={arXiv preprint arXiv:1712.06861},
-         }
-````
-
+If you want a more in depth view of the method check the original work.
 
