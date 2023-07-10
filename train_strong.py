@@ -137,7 +137,8 @@ def process_epoch(mode,epoch,model,loss_fn,optimizer,dataloader,batch_preprocess
         tnf_batch = batch_preprocessing_fn(batch)
         theta = model(tnf_batch)
         loss = loss_fn(theta,tnf_batch['theta_GT'])
-        loss_np = loss.data.cpu().numpy()[0]
+        # loss_np = loss.data.cpu().numpy()[0]
+        loss_np = loss.data.cpu().numpy()
         epoch_loss += loss_np
         if mode=='train':
             loss.backward()

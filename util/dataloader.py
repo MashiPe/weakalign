@@ -1,7 +1,7 @@
 import torch
 import torch.multiprocessing as multiprocessing
 from torch.utils.data.sampler import SequentialSampler, RandomSampler, BatchSampler
-import collections
+import collections.abc as collections
 import sys
 import traceback
 import threading
@@ -100,6 +100,7 @@ def default_collate(batch):
             numel = sum([x.numel() for x in batch])
             storage = batch[0].storage()._new_shared(numel)
             out = batch[0].new(storage)
+            # print(len(batch))
         return torch.stack(batch, 0, out=out)
     elif type(batch[0]).__module__ == 'numpy':
         elem = batch[0]

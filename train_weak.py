@@ -175,7 +175,7 @@ batch_tnf = BatchTensorToVars(use_cuda=use_cuda)
 dataloader = DataLoader(dataset, batch_size=args.batch_size,
                     shuffle=True, num_workers=4)
 
-dataloader_eval = DataLoader(dataset_eval, batch_size=8,
+dataloader_eval = DataLoader(dataset_eval, batch_size=2,
                         shuffle=False, num_workers=4)
 
 # define checkpoint name
@@ -195,7 +195,7 @@ def process_epoch(mode,epoch,model,loss_fn,optimizer,dataloader,batch_preprocess
             optimizer.zero_grad()
         tnf_batch = batch_preprocessing_fn(batch)
         loss = loss_fn(tnf_batch)
-        loss_np = loss.data.cpu().numpy()[0]
+        loss_np = loss.data.cpu().numpy()
         epoch_loss += loss_np
         if mode=='train':
             loss.backward()
@@ -217,6 +217,7 @@ if args.eval_metric=='pck':
     metric = 'pck'
 do_aff = args.model_aff!=""
 do_tps = args.model_tps!=""
+do_hom = False
 two_stage = args.model!='' or (do_aff and do_tps)
 
 
@@ -232,7 +233,7 @@ eval_idx = np.flatnonzero(eval_flag)
 
 model.eval()
 
-stats=compute_metric(metric,model,dataset_eval,dataloader_eval,batch_tnf,8,two_stage,do_aff,do_tps,args)
+stats=compute_metric(metric,model,dataset_eval,dataloader_eval,batch_tnf,2,two_stage,do_aff,do_tps,do_hom,args)
 eval_value=np.mean(stats['aff_tps'][metric][eval_idx])
 
 print(eval_value)
@@ -254,7 +255,7 @@ for epoch in range(1, args.num_epochs+1):
         model.train()
     train_loss[epoch-1] = process_epoch('train',epoch,model,loss_fun,optimizer,dataloader,batch_tnf,log_interval=1)
     model.eval()
-    stats=compute_metric(metric,model,dataset_eval,dataloader_eval,batch_tnf,8,two_stage,do_aff,do_tps,args)
+    stats=compute_metric(metric,model,dataset_eval,dataloader_eval,batch_tnf,2,two_stage,do_aff,do_tps,args=args)
     eval_value=np.mean(stats['aff_tps'][metric][eval_idx])
     print(eval_value)
     

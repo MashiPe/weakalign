@@ -25,7 +25,19 @@ class SynthDataset(Dataset):
             
     """
 
-    def __init__(self, dataset_csv_path, dataset_csv_file, dataset_image_path, output_size=(480,640), geometric_model='affine', dataset_size=0, transform=None, random_sample=False, random_t=0.5, random_s=0.5, random_alpha=1/6, random_t_tps=0.4):
+    def __init__(self, 
+                 dataset_csv_path, 
+                 dataset_csv_file, 
+                 dataset_image_path, 
+                 output_size=(480,640), 
+                 geometric_model='affine', 
+                 dataset_size=0, 
+                 transform=None, 
+                 random_sample=False, 
+                 random_t=0.5, 
+                 random_s=0.5, 
+                 random_alpha=1/6, 
+                 random_t_tps=0.4):
         self.out_h, self.out_w = output_size
         # read csv file
         self.train_data = pd.read_csv(os.path.join(dataset_csv_path,dataset_csv_file))
@@ -39,7 +51,8 @@ class SynthDataset(Dataset):
             self.train_data = self.train_data.iloc[0:dataset_size,:]
         self.img_names = self.train_data.iloc[:,0]
         if self.random_sample==False:
-            self.theta_array = self.train_data.iloc[:, 1:].as_matrix().astype('float')
+            # self.theta_array = self.train_data.iloc[:, 1:].values().astype('float')
+            self.theta_array = self.train_data.iloc[:, 1:].to_numpy().astype('float')
         # copy arguments
         self.dataset_image_path = dataset_image_path
         self.transform = transform
@@ -67,6 +80,7 @@ class SynthDataset(Dataset):
                 theta = np.expand_dims(np.expand_dims(theta,1),2)
             if self.geometric_model=='afftps':
                 theta[[0,1,2,3,4,5]] = theta[[3,2,5,1,0,4]]
+
         else:
             if self.geometric_model=='affine' or self.geometric_model=='afftps':
                 alpha = (np.random.rand(1)-0.5)*2*np.pi*self.random_alpha
@@ -76,6 +90,10 @@ class SynthDataset(Dataset):
                 theta_aff[1]=(1+(theta_aff[1]-0.5)*2*self.random_s)*(-np.sin(alpha))
                 theta_aff[3]=(1+(theta_aff[3]-0.5)*2*self.random_s)*np.sin(alpha)
                 theta_aff[4]=(1+(theta_aff[4]-0.5)*2*self.random_s)*np.cos(alpha)
+
+            if self.geometric_model=='hom':
+                theta_hom = np.array([-1, -1, 1, 1, -1, 1, -1, 1])
+                theta_hom = theta_hom+(np.random.rand(8)-0.5)*2*self.random_t_tps
                 
             if self.geometric_model=='tps' or self.geometric_model=='afftps':
                 theta_tps = np.array([-1 , -1 , -1 , 0 , 0 , 0 , 1 , 1 , 1 , -1 , 0 , 1 , -1 , 0 , 1 , -1 , 0 , 1])
@@ -98,6 +116,8 @@ class SynthDataset(Dataset):
                 theta=theta_tps
             elif self.geometric_model=='afftps':
                 theta=np.concatenate((theta_aff,theta_tps))
+            elif self.geometric_model=="hom":
+                theta = theta_hom
             
         # make arrays float tensor for subsequent processing
         image = torch.Tensor(image.astype(np.float32))

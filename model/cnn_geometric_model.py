@@ -16,7 +16,11 @@ def featureL2Norm(feature):
     return torch.div(feature,norm)
 
 class FeatureExtraction(torch.nn.Module):
-    def __init__(self, train_fe=False, feature_extraction_cnn='vgg', normalization=True, last_layer='', use_cuda=True):
+    def __init__(self, train_fe=False, 
+                 feature_extraction_cnn='vgg', 
+                 normalization=True, 
+                 last_layer='', 
+                 use_cuda=True):
         super(FeatureExtraction, self).__init__()
         self.normalization = normalization
         if feature_extraction_cnn == 'vgg':
@@ -32,7 +36,7 @@ class FeatureExtraction(torch.nn.Module):
             last_layer_idx = vgg_feature_layers.index(last_layer)
             self.model = nn.Sequential(*list(self.model.features.children())[:last_layer_idx+1])
         if feature_extraction_cnn == 'resnet101':
-            self.model = models.resnet101(pretrained=True)
+            self.model = models.resnet101(weights='ResNet101_Weights.DEFAULT')
             resnet_feature_layers = ['conv1',
                                      'bn1',
                                      'relu',
@@ -111,7 +115,13 @@ class FeatureCorrelation(torch.nn.Module):
 
 
 class FeatureRegression(nn.Module):
-    def __init__(self, output_dim=6, use_cuda=True, batch_normalization=True, kernel_sizes=[7,5], channels=[128,64] ,feature_size=15):
+    def __init__(self, 
+                 output_dim=6, 
+                 use_cuda=True, 
+                 batch_normalization=True, 
+                 kernel_sizes=[7,5], 
+                 channels=[128,64] ,
+                 feature_size=15):
         super(FeatureRegression, self).__init__()
         num_layers = len(kernel_sizes)
         nn_modules = list()
@@ -134,7 +144,8 @@ class FeatureRegression(nn.Module):
 
     def forward(self, x):
         x = self.conv(x)
-        x = x.view(x.size(0), -1)
+        # x = x.view(x.size(0), -1)
+        x = x.contiguous().view(x.size(0), -1)
         x = self.linear(x)
         return x
     
