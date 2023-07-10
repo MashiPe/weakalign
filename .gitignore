@@ -11,3 +11,5 @@ images/
 baselines/
 **/*.bak
 *.png
+.devcontainer
+weakalign
