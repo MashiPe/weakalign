@@ -13,7 +13,18 @@ from util.py_util import create_file_path
 from model.loss import WeakInlierCount, TwoStageWeakInlierCount
 
 
-def compute_metric(metric,model,dataset,dataloader,batch_tnf,batch_size,two_stage=True,do_aff=False,do_tps=False,args=None):
+def compute_metric(
+        metric,
+        model,
+        dataset,
+        dataloader,
+        batch_tnf,
+        batch_size,
+        two_stage=True,
+        do_aff=False,
+        do_tps=False,
+        do_hom=False,
+        args=None):
     # Initialize stats
     N=len(dataset)
     stats={}
@@ -24,6 +35,8 @@ def compute_metric(metric,model,dataset,dataloader,batch_tnf,batch_size,two_stag
         stats['tps']={}
     if two_stage:
         stats['aff_tps']={}
+    if do_hom:
+        stats['hom']={}
     # choose metric function and metrics to compute
     if metric=='pck':  
         metrics = ['pck']
@@ -60,6 +73,7 @@ def compute_metric(metric,model,dataset,dataloader,batch_tnf,batch_size,two_stag
         model.eval()
         theta_aff=None
         theta_tps=None
+        theta_hom=None
         theta_aff_tps=None
         
         if two_stage:
@@ -75,11 +89,18 @@ def compute_metric(metric,model,dataset,dataloader,batch_tnf,batch_size,two_stag
             theta_tps=model(batch)   
             if isinstance(theta_tps,tuple):
                 theta_tps=theta_tps[0]
+        elif do_hom:
+            theta_hom,coor_hom=model(batch)   
+            if isinstance(theta_hom,tuple):
+                theta_hom=theta_hom[0]
         
         if metric=='inlier_count':
-            stats = inlier_count(batch,batch_start_idx,theta_aff,theta_tps,theta_aff_tps,corr_aff,corr_aff_tps,stats,args)
+            if not do_hom:
+                stats = inlier_count(batch,batch_start_idx,theta_aff,theta_tps,theta_aff_tps,corr_aff,corr_aff_tps,stats,args)
+            else:
+                stats = inlier_count_hom(batch,batch_start_idx,theta_hom,coor_hom,stats,args)
         elif metric_fun is not None:
-            stats = metric_fun(batch,batch_start_idx,theta_aff,theta_tps,theta_aff_tps,stats,args)
+            stats = metric_fun(batch,batch_start_idx,theta_aff,theta_tps,theta_aff_tps,theta_hom,stats,args)
             
         print('Batch: [{}/{} ({:.0f}%)]'.format(i, len(dataloader), 100. * i / len(dataloader)))
 
@@ -206,11 +227,24 @@ def inlier_count(batch,batch_start_idx,theta_aff,theta_tps,theta_aff_tps,corr_af
 
     return stats
 
+def inlier_count_hom(batch,batch_start_idx,theta_hom,corr_hom,stats,args,use_cuda=True):
+    inliersHom= WeakInlierCount(geometric_model='hom',use_cuda=torch.cuda.is_available(),dilation_filter=0,normalize_inlier_count=True)
+    inliers_comp = inliersHom(matches=corr_hom,theta=theta_hom)
+    current_batch_size=batch['source_im_size'].size(0)
+    indices = range(batch_start_idx,batch_start_idx+current_batch_size)
+    
+    stats['hom']['inlier_count'][indices] = inliers_comp.unsqueeze(1).cpu().data.numpy()
 
-def pck_metric(batch,batch_start_idx,theta_aff,theta_tps,theta_aff_tps,stats,args,use_cuda=True):
+    return stats
+
+
+
+# def pck_metric(batch,batch_start_idx,theta_aff,theta_tps,theta_aff_tps,theta_hom,stats,args,use_cuda=True):
+def pck_metric(batch,batch_start_idx,theta_aff,theta_tps,theta_aff_tps,theta_hom,stats,args,use_cuda=True):
     alpha = args.pck_alpha
     do_aff = theta_aff is not None
     do_tps = theta_tps is not None
+    do_hom = theta_hom is not None
     do_aff_tps = theta_aff_tps is not None
     
     source_im_size = batch['source_im_size']
@@ -231,6 +265,11 @@ def pck_metric(batch,batch_start_idx,theta_aff,theta_tps,theta_aff_tps,stats,arg
         warped_points_aff_norm = pt.affPointTnf(theta_aff,target_points_norm)
         warped_points_aff = PointsToPixelCoords(warped_points_aff_norm,source_im_size)
 
+    if do_hom:
+        # do hom only
+        warped_points_hom_norm = pt.homPointTnf(theta_hom,target_points_norm)
+        warped_points_hom = PointsToPixelCoords(warped_points_hom_norm,source_im_size)
+
     if do_tps:
         # do tps only
         warped_points_tps_norm = pt.tpsPointTnf(theta_tps,target_points_norm)
@@ -241,6 +280,8 @@ def pck_metric(batch,batch_start_idx,theta_aff,theta_tps,theta_aff_tps,stats,arg
         warped_points_aff_tps_norm = pt.tpsPointTnf(theta_aff_tps,target_points_norm)
         warped_points_aff_tps_norm = pt.affPointTnf(theta_aff,warped_points_aff_tps_norm)
         warped_points_aff_tps = PointsToPixelCoords(warped_points_aff_tps_norm,source_im_size)
+    
+    
     
     L_pck = batch['L_pck'].data
     
@@ -254,12 +295,17 @@ def pck_metric(batch,batch_start_idx,theta_aff,theta_tps,theta_aff_tps,stats,arg
         
     if do_tps:
         pck_tps = pck(source_points.data, warped_points_tps.data, L_pck, alpha)
+
+    if do_hom:
+        pck_hom = pck(source_points.data, warped_points_hom.data, L_pck, alpha)
         
     if do_aff_tps:
         pck_aff_tps = pck(source_points.data, warped_points_aff_tps.data, L_pck, alpha)
         
     if do_aff:
         stats['aff']['pck'][indices] = pck_aff.unsqueeze(1).cpu().numpy()
+    if do_hom:
+        stats['hom']['pck'][indices] = pck_hom.unsqueeze(1).cpu().numpy()
     if do_tps:
         stats['tps']['pck'][indices] = pck_tps.unsqueeze(1).cpu().numpy()
     if do_aff_tps:

@@ -1,7 +1,7 @@
 import torch
 from torch.autograd import Variable
 import numpy as np
-from geotnf.transformation import TpsGridGen
+from geotnf.transformation import HomographyGridGen, TpsGridGen, homography_mat_from_4_pts
 
 def normalize_axis(x,L):
     return (x-1-(L-1)/2)*2/(L-1)
@@ -30,6 +30,34 @@ class PointTnf(object):
         # undo reshaping
         warped_points=warped_points.transpose(3,1).squeeze(3)      
         return warped_points
+
+    def homPointTnf(self,theta,points,eps=1e-5):
+        b=theta.size(0)
+        if theta.size(1)==9:
+            H = theta            
+        else:
+            H = homography_mat_from_4_pts(theta)            
+        h0=H[:,0].unsqueeze(1).unsqueeze(2)
+        h1=H[:,1].unsqueeze(1).unsqueeze(2)
+        h2=H[:,2].unsqueeze(1).unsqueeze(2)
+        h3=H[:,3].unsqueeze(1).unsqueeze(2)
+        h4=H[:,4].unsqueeze(1).unsqueeze(2)
+        h5=H[:,5].unsqueeze(1).unsqueeze(2)
+        h6=H[:,6].unsqueeze(1).unsqueeze(2)
+        h7=H[:,7].unsqueeze(1).unsqueeze(2)
+        h8=H[:,8].unsqueeze(1).unsqueeze(2)
+
+        X=points[:,0,:].unsqueeze(1)
+        Y=points[:,1,:].unsqueeze(1)
+        Xp = X*h0+Y*h1+h2
+        Yp = X*h3+Y*h4+h5
+        k = X*h6+Y*h7+h8
+        # prevent division by 0
+        k = k+torch.sign(k)*eps
+
+        Xp /= k; Yp /= k
+
+        return torch.cat((Xp,Yp),1)
     
     def affPointTnf(self,theta,points):
         theta_mat = theta.view(-1,2,3)

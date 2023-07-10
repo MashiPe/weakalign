@@ -78,7 +78,14 @@ class GeometricTnf(object):
     ( can be used with no transformation to perform bilinear resizing )        
     
     """
-    def __init__(self, geometric_model='affine', tps_grid_size=3, tps_reg_factor=0, out_h=240, out_w=240, offset_factor=None, use_cuda=True):
+    def __init__(self, 
+                 geometric_model='affine', 
+                 tps_grid_size=3, 
+                 tps_reg_factor=0, 
+                 out_h=240, 
+                 out_w=240, 
+                 offset_factor=None, 
+                 use_cuda=True):
         self.out_h = out_h
         self.out_w = out_w
         self.geometric_model = geometric_model
@@ -89,9 +96,12 @@ class GeometricTnf(object):
             self.gridGen = AffineGridGen(out_h=out_h, out_w=out_w, use_cuda=use_cuda)
         elif geometric_model=='affine' and offset_factor is not None:
             self.gridGen = AffineGridGenV2(out_h=out_h, out_w=out_w, use_cuda=use_cuda)
+        elif geometric_model=='hom':
+            self.gridGen = HomographyGridGen(out_h=out_h, out_w=out_w , use_cuda=use_cuda)
         elif geometric_model=='tps':
             self.gridGen = TpsGridGen(out_h=out_h, out_w=out_w, grid_size=tps_grid_size, 
                                       reg_factor=tps_reg_factor, use_cuda=use_cuda)
+
         if offset_factor is not None:
             self.gridGen.grid_X=self.gridGen.grid_X/offset_factor
             self.gridGen.grid_Y=self.gridGen.grid_Y/offset_factor   
@@ -114,6 +124,8 @@ class GeometricTnf(object):
         if (out_h is not None and out_w is not None) and (out_h!=self.out_h or out_w!=self.out_w):
             if self.geometric_model=='affine':
                 gridGen = AffineGridGen(out_h, out_w)
+            elif self.geometric_model=='hom':
+                gridGen = HomographyGridGen(out_h, out_w, use_cuda=self.use_cuda)
             elif self.geometric_model=='tps':
                 gridGen = TpsGridGen(out_h, out_w, use_cuda=self.use_cuda)
         else:
@@ -132,7 +144,7 @@ class GeometricTnf(object):
             return sampling_grid
         
         # sample transformed image
-        warped_image_batch = F.grid_sample(image_batch, sampling_grid)
+        warped_image_batch = F.grid_sample(image_batch, sampling_grid,align_corners=True)
         
         if return_sampling_grid and return_warped_image:
             return (warped_image_batch,sampling_grid)
@@ -147,7 +159,13 @@ class SynthPairTnf(object):
     Generate a synthetically warped training pair using an affine transformation.
     
     """
-    def __init__(self, use_cuda=True, supervision='strong', geometric_model='affine', crop_factor=9/16, output_size=(240,240), padding_factor = 0.5):
+    def __init__(self, 
+                 use_cuda=True, 
+                 supervision='strong', 
+                 geometric_model='affine', 
+                 crop_factor=9/16, 
+                 output_size=(240,240), 
+                 padding_factor = 0.5):
         assert isinstance(use_cuda, (bool))
         assert isinstance(crop_factor, (float))
         assert isinstance(output_size, (tuple))
@@ -421,6 +439,86 @@ class AffineGridGenV2(Module):
         Yp = X*t3 + Y*t4 + t5
         
         return torch.cat((Xp,Yp),3)
+
+class HomographyGridGen(Module):
+    def __init__(self, out_h=240, out_w=240, use_cuda=True):
+        super(HomographyGridGen, self).__init__()        
+        self.out_h, self.out_w = out_h, out_w
+        self.use_cuda = use_cuda
+
+        # create grid in numpy
+        # self.grid = np.zeros( [self.out_h, self.out_w, 3], dtype=np.float32)
+        # sampling grid with dim-0 coords (Y)
+        self.grid_X,self.grid_Y = np.meshgrid(np.linspace(-1,1,out_w),np.linspace(-1,1,out_h))
+        # grid_X,grid_Y: size [1,H,W,1,1]
+        self.grid_X = torch.FloatTensor(self.grid_X).unsqueeze(0).unsqueeze(3)
+        self.grid_Y = torch.FloatTensor(self.grid_Y).unsqueeze(0).unsqueeze(3)
+        self.grid_X = Variable(self.grid_X,requires_grad=False)
+        self.grid_Y = Variable(self.grid_Y,requires_grad=False)
+        if use_cuda:
+            self.grid_X = self.grid_X.cuda()
+            self.grid_Y = self.grid_Y.cuda()
+            
+    def forward(self, theta):
+        b=theta.size(0)
+        if theta.size(1)==9:
+            H = theta            
+        else:
+            H = homography_mat_from_4_pts(theta)            
+
+        h0=H[:,0].unsqueeze(1).unsqueeze(2).unsqueeze(3)
+        h1=H[:,1].unsqueeze(1).unsqueeze(2).unsqueeze(3)
+        h2=H[:,2].unsqueeze(1).unsqueeze(2).unsqueeze(3)
+        h3=H[:,3].unsqueeze(1).unsqueeze(2).unsqueeze(3)
+        h4=H[:,4].unsqueeze(1).unsqueeze(2).unsqueeze(3)
+        h5=H[:,5].unsqueeze(1).unsqueeze(2).unsqueeze(3)
+        h6=H[:,6].unsqueeze(1).unsqueeze(2).unsqueeze(3)
+        h7=H[:,7].unsqueeze(1).unsqueeze(2).unsqueeze(3)
+        h8=H[:,8].unsqueeze(1).unsqueeze(2).unsqueeze(3)
+        
+        grid_X = expand_dim(self.grid_X,0,b);
+        grid_Y = expand_dim(self.grid_Y,0,b);
+
+        grid_Xp = grid_X*h0+grid_Y*h1+h2
+        grid_Yp = grid_X*h3+grid_Y*h4+h5
+        k = grid_X*h6+grid_Y*h7+h8
+
+        grid_Xp /= k; grid_Yp /= k
+        
+        return torch.cat((grid_Xp,grid_Yp),3)
+
+def homography_mat_from_4_pts(theta):
+    b=theta.size(0)
+    if not theta.size()==(b,8):
+        theta = theta.view(b,8)
+        theta = theta.contiguous()
+    
+    xp=theta[:,:4].unsqueeze(2) ;yp=theta[:,4:].unsqueeze(2) 
+    
+    x = Variable(torch.FloatTensor([-1, -1, 1, 1])).unsqueeze(1).unsqueeze(0).expand(b,4,1)
+    y = Variable(torch.FloatTensor([-1,  1,-1, 1])).unsqueeze(1).unsqueeze(0).expand(b,4,1)
+    z = Variable(torch.zeros(4)).unsqueeze(1).unsqueeze(0).expand(b,4,1)
+    o = Variable(torch.ones(4)).unsqueeze(1).unsqueeze(0).expand(b,4,1)
+    single_o = Variable(torch.ones(1)).unsqueeze(1).unsqueeze(0).expand(b,1,1)
+    
+    if theta.is_cuda:
+        x = x.cuda()
+        y = y.cuda()
+        z = z.cuda()
+        o = o.cuda()
+        single_o = single_o.cuda()
+
+
+    A=torch.cat([torch.cat([-x,-y,-o,z,z,z,x*xp,y*xp,xp],2),torch.cat([z,z,z,-x,-y,-o,x*yp,y*yp,yp],2)],1)
+    # find homography by assuming h33 = 1 and inverting the linear system
+    h=torch.bmm(torch.inverse(A[:,:,:8]),-A[:,:,8].unsqueeze(2))
+    # add h33
+    h=torch.cat([h,single_o],1)
+    
+    H = h.squeeze(2)
+    
+    return H
+
         
 class TpsGridGen(Module):
     def __init__(self, out_h=240, out_w=240, use_regular_grid=True, grid_size=3, reg_factor=0, use_cuda=True):

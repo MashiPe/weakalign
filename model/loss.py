@@ -37,13 +37,27 @@ class TransformedGridLoss(nn.Module):
         elif self.geometric_model=='tps':
             P_prime = self.pointTnf.tpsPointTnf(theta.unsqueeze(2).unsqueeze(3),P)
             P_prime_GT = self.pointTnf.tpsPointTnf(theta_GT,P)
+        elif self.geometric_model=='hom':
+            P_prime = self.pointTnf.homPointTnf(theta.unsqueeze(2).unsqueeze(3),P)
+            P_prime_GT = self.pointTnf.homPointTnf(theta_GT,P)
+
         # compute MSE loss on transformed grid points
         loss = torch.sum(torch.pow(P_prime - P_prime_GT,2),1)
         loss = torch.mean(loss)
         return loss
 
 class WeakInlierCount(nn.Module):
-    def __init__(self, geometric_model='affine', tps_grid_size=3, tps_reg_factor=0, h_matches=15, w_matches=15, use_conv_filter=False, dilation_filter=None, use_cuda=True, normalize_inlier_count=False, offset_factor=227/210):
+    def __init__(self, 
+                 geometric_model='affine', 
+                 tps_grid_size=3, 
+                 tps_reg_factor=0, 
+                 h_matches=15, 
+                 w_matches=15, 
+                 use_conv_filter=False, 
+                 dilation_filter=None, 
+                 use_cuda=True, 
+                 normalize_inlier_count=False, 
+                 offset_factor=227/210):
         super(WeakInlierCount, self).__init__()
         self.normalize=normalize_inlier_count
         self.geometric_model = geometric_model

@@ -55,13 +55,19 @@ class ArgumentParser():
         train_params = self.parser.add_argument_group('train')
         # Optimization parameters 
         train_params.add_argument('--lr', type=float, default=0.001, help='learning rate')
+        train_params.add_argument('--lr_scheduler', type=str_to_bool,
+                        nargs='?', const=True, default=True,
+                        help='Bool (default True), whether to use a decaying lr_scheduler')
+        train_params.add_argument('--lr_max_iter', type=int, default=1000,
+                        help='Number of steps between lr starting value and 1e-6 '
+                             '(lr default min) when choosing lr_scheduler')
         train_params.add_argument('--momentum', type=float, default=0.9, help='momentum constant')
         train_params.add_argument('--num-epochs', type=int, default=10, help='number of training epochs')
         train_params.add_argument('--batch-size', type=int, default=16, help='training batch size')
         train_params.add_argument('--weight-decay', type=float, default=0, help='weight decay constant')
         train_params.add_argument('--seed', type=int, default=1, help='Pseudo-RNG seed')
         train_params.add_argument('--use-mse-loss', type=str_to_bool, nargs='?', const=True, default=False, help='Use MSE loss on tnf. parameters')        
-        train_params.add_argument('--geometric-model', type=str, default='affine', help='geometric model to be regressed at output: affine or tps')
+        train_params.add_argument('--geometric-model', type=str, default='affine', help='geometric model to be regressed at output: affine, tps or hom')
         # Trained model parameters
         train_params.add_argument('--result-model-fn', type=str, default='checkpoint_adam', help='trained model filename')
         train_params.add_argument('--result-model-dir', type=str, default='trained_models', help='path to trained models folder')

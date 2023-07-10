@@ -1,0 +1,77 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Train String Hom pascal",
+            "type": "python",
+            "request": "launch",
+            "program": "train_strong_hom.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["--training-dataset","pascal","--dataset-csv-path","training_data/pascal-random/",
+            "--batch-size","16","--result-model-fn","aug_resnet_pascal_random","--feature-extraction-cnn",
+            "resnet101","--random-sample","1","--num-epochs","50","--geometric-model","hom","--lr","0.001"]
+        },
+        {
+            "name": "Train Strong Hom streeview",
+            "type": "python",
+            "request": "launch",
+            "program": "train_strong_hom.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--training-dataset","streeview",
+                "--dataset-csv-path","training_data/streetview-random/",
+                "--batch-size","16",
+                "--result-model-fn","aug_resnet_streetview_random",
+                "--feature-extraction-cnn","vgg",
+                "--random-sample","1",
+                "--num-epochs","50",
+                "--geometric-model","hom",
+                "--lr","0.00001",
+                "--dataset-image-path","datasets"]
+        },
+        {
+            "name": "Train weak pascal",
+            "type": "python",
+            "request": "launch",
+            "program": "train_weak.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--feature-extraction-cnn","resnet101",
+                "--model-aff","trained_models/best_aug_resnet_pascal_random_smallerlr_new_strong_50_pascal_affine_resnet101_grid_loss.pth.tar",
+                "--model-tps","trained_models/best_aug_resnet_pascal_random_smallerlr_new_strong_50_pascal_tps_resnet101_grid_loss.pth.tar",
+                "--training-dataset","pf-pascal",
+                "--dataset-csv-path","training_data/pf-pascal-flip/",
+                "--dataset-image-path","datasets/proposal-flow-pascal/",
+                "--num-epochs","15",
+                "--lr","5e-8",
+                "--result-model-fn","train_weak",
+                "--batch-size","4"
+                ]
+        },
+        {
+            "name": "Train weak Hom pascal",
+            "type": "python",
+            "request": "launch",
+            "program": "train_weak_hom.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--training-dataset","pf-pascal",
+                "--model","trained_models/best_aug_resnet_streetview_random_strong_50_streeview_hom_vgg_grid_loss.pth.tar",
+                "--dataset-csv-path","training_data/pf-pascal-flip/",
+                "--batch-size","8",
+                // "--result-model-fn","aug_resnet_streetview_random",
+                "--dataset-image-path","datasets/proposal-flow-pascal/",
+                "--num-epochs","60",
+                "--lr","5e-8",
+                "--result-model-fn","train_weak_hom"
+                ]
+        }
+    ]
+}
